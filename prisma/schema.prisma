@@ -1,0 +1,390 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  STUDENT
+  EVENT_MANAGER
+  ADMIN
+}
+
+enum VerificationStatus {
+  PENDING
+  VERIFIED
+  REJECTED
+}
+
+enum EventStatus {
+  DRAFT
+  PUBLISHED
+  CANCELLED
+  COMPLETED
+}
+
+enum EventCategory {
+  HACKATHON
+  WORKSHOP
+  COMPETITION
+  SEMINAR
+  CULTURAL
+  SPORTS
+  TECHNICAL
+  ENTREPRENEURSHIP
+  CAREER
+  OTHER
+}
+
+enum EventMode {
+  ONLINE
+  OFFLINE
+  HYBRID
+}
+
+enum TeamRequestStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+}
+
+enum NotificationType {
+  EVENT_REGISTRATION
+  EVENT_DEADLINE
+  TEAM_REQUEST
+  TEAM_ACCEPTED
+  TEAM_REJECTED
+  NEW_EVENT
+  CLUB_ANNOUNCEMENT
+  VERIFICATION_UPDATE
+  GENERAL
+}
+
+model User {
+  id                   Int                  @id @default(autoincrement())
+  email                String               @unique
+  password             String
+  name                 String
+  role                 UserRole             @default(STUDENT)
+  verificationStatus   VerificationStatus   @default(PENDING)
+  profileImage         String?
+  college              String?
+  branch               String?
+  year                 String?
+  phone                String?
+  studentId            String?
+  organizationName     String?
+  collegeIdDocument    String?
+  emailVerified        Boolean              @default(false)
+  emailOtp             String?
+  emailOtpExpiry       DateTime?
+  createdAt            DateTime             @default(now())
+  updatedAt            DateTime             @updatedAt
+
+  skills               UserSkill[]
+  interests            UserInterest[]
+  createdEvents        Event[]              @relation("EventCreator")
+  registrations        EventRegistration[]
+  teams                Team[]               @relation("TeamLeader")
+  teamMembers          TeamMember[]
+  teamJoinRequests     TeamJoinRequest[]
+  notifications        Notification[]
+  certificates         Certificate[]
+  projects             Project[]
+  hackathonHistory     HackathonHistory[]
+  clubFollows          ClubFollower[]
+  chats                Chat[]
+  createdClubs         Club[]               @relation("ClubCreator")
+}
+
+model Skill {
+  id           Int           @id @default(autoincrement())
+  name         String        @unique
+  userSkills   UserSkill[]
+  eventSkills  EventSkill[]
+  teamSkills   TeamSkill[]
+}
+
+model Interest {
+  id             Int             @id @default(autoincrement())
+  name           String          @unique
+  userInterests  UserInterest[]
+  eventInterests EventInterest[]
+}
+
+model UserSkill {
+  id       Int   @id @default(autoincrement())
+  userId   Int
+  skillId  Int
+  user     User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  skill    Skill @relation(fields: [skillId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, skillId])
+}
+
+model UserInterest {
+  id         Int      @id @default(autoincrement())
+  userId     Int
+  interestId Int
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  interest   Interest @relation(fields: [interestId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, interestId])
+}
+
+model Event {
+  id                   Int                  @id @default(autoincrement())
+  title                String
+  description          String
+  category             EventCategory
+  status               EventStatus          @default(DRAFT)
+  bannerImage          String?
+  organizer            String
+  organizerClubId      Int?
+  organizerClub        Club?                @relation(fields: [organizerClubId], references: [id])
+  date                 DateTime
+  startTime            String?
+  endTime              String?
+  registrationStart    DateTime
+  registrationDeadline DateTime
+  venue                String?
+  mode                 EventMode            @default(OFFLINE)
+  maxParticipants      Int?
+  eligibility          String?
+  branchRestrictions   String[]             @default([])
+  yearRestrictions     String[]             @default([])
+  prizePool            String?
+  rules                String[]             @default([])
+  contactEmail         String?
+  contactPhone         String?
+  registrationLink     String?
+  faqs                 Json                 @default("[]")
+  createdById          Int
+  creator              User                 @relation("EventCreator", fields: [createdById], references: [id])
+  demandLevel          String               @default("Medium")
+  createdAt            DateTime             @default(now())
+  updatedAt            DateTime             @updatedAt
+
+  registrations        EventRegistration[]
+  requiredSkills       EventSkill[]
+  requiredInterests    EventInterest[]
+  teams                Team[]
+}
+
+model EventSkill {
+  id       Int   @id @default(autoincrement())
+  eventId  Int
+  skillId  Int
+  event    Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  skill    Skill @relation(fields: [skillId], references: [id], onDelete: Cascade)
+
+  @@unique([eventId, skillId])
+}
+
+model EventInterest {
+  id         Int      @id @default(autoincrement())
+  eventId    Int
+  interestId Int
+  event      Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  interest   Interest @relation(fields: [interestId], references: [id], onDelete: Cascade)
+
+  @@unique([eventId, interestId])
+}
+
+model EventRegistration {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  eventId   Int
+  status    String   @default("registered")
+  createdAt DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  event     Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, eventId])
+}
+
+model Club {
+  id            Int                  @id @default(autoincrement())
+  name          String
+  category      String
+  description   String
+  image         String?
+  coverImage    String?
+  email         String?
+  website       String?
+  foundedYear   Int?
+  memberCount   Int                  @default(0)
+  createdById   Int
+  creator       User                 @relation("ClubCreator", fields: [createdById], references: [id])
+  createdAt     DateTime             @default(now())
+  updatedAt     DateTime             @updatedAt
+
+  followers     ClubFollower[]
+  events        Event[]
+  announcements ClubAnnouncement[]
+}
+
+model ClubFollower {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  clubId    Int
+  createdAt DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  club      Club     @relation(fields: [clubId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, clubId])
+}
+
+model ClubAnnouncement {
+  id        Int      @id @default(autoincrement())
+  clubId    Int
+  title     String
+  content   String
+  createdAt DateTime @default(now())
+
+  club      Club     @relation(fields: [clubId], references: [id], onDelete: Cascade)
+}
+
+model Team {
+  id                 Int               @id @default(autoincrement())
+  name               String
+  projectTitle       String?
+  projectDescription String?
+  problemStatement   String?
+  projectCategory    String?
+  maxSize            Int               @default(4)
+  currentSize        Int               @default(1)
+  deadline           DateTime?
+  contactEmail       String?
+  contactPhone       String?
+  eventId            Int?
+  event              Event?            @relation(fields: [eventId], references: [id])
+  leaderId           Int
+  leader             User              @relation("TeamLeader", fields: [leaderId], references: [id])
+  college            String?
+  branch             String?
+  year               String?
+  isPublic           Boolean           @default(false)
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+
+  members            TeamMember[]
+  joinRequests       TeamJoinRequest[]
+  requiredSkills     TeamSkill[]
+}
+
+model TeamSkill {
+  id       Int   @id @default(autoincrement())
+  teamId   Int
+  skillId  Int
+  team     Team  @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  skill    Skill @relation(fields: [skillId], references: [id], onDelete: Cascade)
+
+  @@unique([teamId, skillId])
+}
+
+model TeamMember {
+  id       Int      @id @default(autoincrement())
+  teamId   Int
+  userId   Int
+  role     String   @default("MEMBER")
+  joinedAt DateTime @default(now())
+
+  team     Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([teamId, userId])
+}
+
+model TeamJoinRequest {
+  id        Int               @id @default(autoincrement())
+  teamId    Int
+  userId    Int
+  message   String?
+  status    TeamRequestStatus @default(PENDING)
+  createdAt DateTime          @default(now())
+  updatedAt DateTime          @updatedAt
+
+  team      Team              @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  user      User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([teamId, userId])
+}
+
+model Notification {
+  id        Int              @id @default(autoincrement())
+  userId    Int
+  type      NotificationType
+  title     String
+  message   String
+  read      Boolean          @default(false)
+  link      String?
+  createdAt DateTime         @default(now())
+
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Certificate {
+  id          Int      @id @default(autoincrement())
+  userId      Int
+  title       String
+  issuer      String
+  date        DateTime
+  image       String?
+  description String?
+  createdAt   DateTime @default(now())
+
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Project {
+  id          Int      @id @default(autoincrement())
+  userId      Int
+  title       String
+  description String
+  techStack   String[] @default([])
+  link        String?
+  image       String?
+  createdAt   DateTime @default(now())
+
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model HackathonHistory {
+  id          Int      @id @default(autoincrement())
+  userId      Int
+  name        String
+  date        DateTime
+  position    String?
+  teamName    String?
+  project     String?
+  createdAt   DateTime @default(now())
+
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Chat {
+  id        Int           @id @default(autoincrement())
+  userId    Int
+  title     String
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages  ChatMessage[]
+}
+
+model ChatMessage {
+  id        Int      @id @default(autoincrement())
+  chatId    Int
+  role      String
+  content   String
+  createdAt DateTime @default(now())
+
+  chat      Chat     @relation(fields: [chatId], references: [id], onDelete: Cascade)
+}
